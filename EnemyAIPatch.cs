@@ -1,14 +1,29 @@
-﻿using HarmonyLib;
-using JetBrains.Annotations;
+using HarmonyLib;
 using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
+using System.Collections;
+
 
 namespace TakeTheMaskOff.Patches
 {
     [HarmonyPatch(typeof(MaskedPlayerEnemy))]
     internal class MaskedPlayerEnemy_Patches
     {
+        private static IEnumerator AnimateMaskFall(GameObject mask, Vector3 startPosition, Vector3 endPosition, float duration)
+        {
+            float elapsedTime = 0;
+
+            while (elapsedTime < duration)
+            {
+                mask.transform.position = Vector3.Lerp(startPosition, endPosition, (elapsedTime / duration));
+                elapsedTime += Time.deltaTime;
+                yield return null;
+            }
+
+            mask.transform.position = endPosition;
+        }
+
         [HarmonyPatch(nameof(MaskedPlayerEnemy.KillEnemy))]
         [HarmonyPostfix]
         internal static void DropMaskOnDeath(MaskedPlayerEnemy __instance)
@@ -16,9 +31,16 @@ namespace TakeTheMaskOff.Patches
             UnMaskTheDeadBase.Instance.mls.LogInfo("HarmonyPatchOpened");
             if (!NetworkManager.Singleton.IsServer) return;
 
-            var maskToSpawn = Random.value >= 0.5f ? GetTragedyItem() : GetComedyItem();
+            __instance.gameObject.transform.Find("ScavengerModel/metarig/spine/spine.001/spine.002/spine.003/spine.004/HeadMaskComedy").gameObject.SetActive(false);
+            __instance.gameObject.transform.Find("ScavengerModel/metarig/spine/spine.001/spine.002/spine.003/spine.004/HeadMaskTragedy").gameObject.SetActive(false);
 
-            var spawnedMask = GameObject.Instantiate(maskToSpawn.spawnPrefab, __instance.transform.position + new Vector3(0, 2.5f, 0), Quaternion.identity);
+            var maskToSpawn = Random.value >= 0.5f ? GetTragedyItem() : GetComedyItem();
+            var startPosition = __instance.transform.position + new Vector3(0, 2.5f, 0);
+            var endPosition = startPosition + new Vector3(0, -2.5f, 0); // adjust as needed
+
+            var spawnedMask = GameObject.Instantiate(maskToSpawn.spawnPrefab, startPosition, Quaternion.identity);
+            __instance.StartCoroutine(AnimateMaskFall(spawnedMask, startPosition, endPosition, 0.5f)); // adjust duration as needed
+
             spawnedMask.GetComponentInChildren<GrabbableObject>().fallTime = 0f;
             spawnedMask.GetComponentInChildren<GrabbableObject>().SetScrapValue(UnMaskTheDeadBase.Instance.MaskValue.Value);
             spawnedMask.GetComponentInChildren<NetworkObject>().Spawn();
