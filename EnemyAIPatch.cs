@@ -20,7 +20,7 @@ namespace TakeTheMaskOff.Patches
 
             var spawnedMask = GameObject.Instantiate(maskToSpawn.spawnPrefab, __instance.transform.position + new Vector3(0, 2.5f, 0), Quaternion.identity);
             spawnedMask.GetComponentInChildren<GrabbableObject>().fallTime = 0f;
-            spawnedMask.GetComponentInChildren<GrabbableObject>().SetScrapValue(100);
+            spawnedMask.GetComponentInChildren<GrabbableObject>().SetScrapValue(UnMaskTheDeadBase.Instance.MaskValue.Value);
             spawnedMask.GetComponentInChildren<NetworkObject>().Spawn();
             UnMaskTheDeadBase.Instance.mls.LogInfo("Halfway there, the vars vared");
             RoundManager.Instance.SyncScrapValuesClientRpc(new NetworkObjectReference[] { spawnedMask.GetComponent<NetworkObject>() }, new int[] { spawnedMask.GetComponent<GrabbableObject>().scrapValue });
