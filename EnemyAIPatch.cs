@@ -3,6 +3,7 @@ using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 using System.Collections;
+using GameNetcodeStuff;
 
 
 namespace TakeTheMaskOff.Patches
@@ -29,12 +30,28 @@ namespace TakeTheMaskOff.Patches
         internal static void DropMaskOnDeath(MaskedPlayerEnemy __instance)
         {
             UnMaskTheDeadBase.Instance.mls.LogInfo("HarmonyPatchOpened");
-            if (!NetworkManager.Singleton.IsServer) return;
 
+            if (__instance.mimickingPlayer != null && __instance.mimickingPlayer.deadBody != null && __instance.mimickingPlayer.isPlayerDead)
+            {
+                // Disable enemy model if this was a corrupted player
+                __instance.gameObject.SetActive(false);
+
+                // Reenable player ragdoll
+                var deadBody = __instance.mimickingPlayer.deadBody;
+                deadBody.gameObject.SetActive(true);
+                deadBody.SetBodyPartsKinematic(false);
+                deadBody.SetRagdollPositionSafely(__instance.transform.position);
+                deadBody.deactivated = false;
+
+                // Hide mask on player ragdoll
+                deadBody.transform.Find("spine.001/spine.002/spine.003/spine.004/HeadMask").gameObject.SetActive(false);
+            }
+            var maskToSpawn = __instance.maskTypes[0].activeSelf ? ComedyItem : TragedyItem;
             __instance.gameObject.transform.Find("ScavengerModel/metarig/spine/spine.001/spine.002/spine.003/spine.004/HeadMaskComedy").gameObject.SetActive(false);
             __instance.gameObject.transform.Find("ScavengerModel/metarig/spine/spine.001/spine.002/spine.003/spine.004/HeadMaskTragedy").gameObject.SetActive(false);
 
-            var maskToSpawn = Random.value >= 0.5f ? GetTragedyItem() : GetComedyItem();
+            if (!NetworkManager.Singleton.IsServer) return;
+
             var startPosition = __instance.transform.position + new Vector3(0, 2.5f, 0);
             var endPosition = startPosition + new Vector3(0, -2.5f, 0); // adjust as needed
 
@@ -49,25 +66,29 @@ namespace TakeTheMaskOff.Patches
         }
 
         private static Item _tragedyItem;
-        private static Item GetTragedyItem()
+        private static Item TragedyItem
         {
-            if (_tragedyItem == null)
+            get
             {
-                _tragedyItem = StartOfRound.Instance.allItemsList.itemsList.First(i => i.name == "TragedyMask");
+                if (_tragedyItem == null)
+                {
+                    _tragedyItem = StartOfRound.Instance.allItemsList.itemsList.First(i => i.name == "TragedyMask");
+                }
+                return _tragedyItem;
             }
-            UnMaskTheDeadBase.Instance.mls.LogInfo("poggies");
-            return _tragedyItem;
         }
 
         private static Item _comedyItem;
-        private static Item GetComedyItem()
+        private static Item ComedyItem
         {
-            if (_comedyItem == null)
+            get
             {
-                _comedyItem = StartOfRound.Instance.allItemsList.itemsList.First(i => i.name == "ComedyMask");
+                if (_comedyItem == null)
+                {
+                    _comedyItem = StartOfRound.Instance.allItemsList.itemsList.First(i => i.name == "ComedyMask");
+                }
+                return _comedyItem;
             }
-            UnMaskTheDeadBase.Instance.mls.LogInfo("Check Check ALLLLLL Check");
-            return _comedyItem;
         }
     }
 }
